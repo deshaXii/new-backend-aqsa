@@ -34,7 +34,7 @@ export const importBackup = async (req, res) => {
 export const exportBackup = async (req, res) => {
   try {
     const repairs = await Repair.find({});
-    const technicians = await Technician.find({});
+    const technicians = await Technician.find();
 
     const backupData = { repairs, technicians };
     const filename = `backup-${Date.now()}.json`;

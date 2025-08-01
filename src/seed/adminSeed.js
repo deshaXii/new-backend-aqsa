@@ -1,7 +1,6 @@
-// src/seed.js
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-import Technician from "../models/Technician.model.js";
+import User from "../models/User.model.js";
 import Repair from "../models/Repair.model.js";
 import Log from "../models/Log.model.js";
 
@@ -16,10 +15,10 @@ async function seedDatabase() {
     console.log("🗑️ مسح كل البيانات القديمة...");
     await Repair.deleteMany({});
     await Log.deleteMany({});
-    await Technician.deleteMany({});
+    await User.deleteMany({});
 
     console.log("➕ إنشاء الأدمن الافتراضي...");
-    await Technician.create({
+    await User.create({
       name: "Admin",
       username: "admin",
       password: "admin123",

@@ -1,11 +1,17 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
+// ✅ كل المستخدمين في Collection واحدة
 const technicianSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    role: { type: String, default: "technician" },
+    role: {
+      type: String,
+      enum: ["admin", "technician"],
+      default: "technician",
+    },
     permissions: {
       addRepair: { type: Boolean, default: false },
       editRepair: { type: Boolean, default: false },
@@ -16,6 +22,11 @@ const technicianSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Technician = mongoose.model("Technician", technicianSchema);
+// ✅ تشفير الباسورد قبل الحفظ
+technicianSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+  this.password = await bcrypt.hash(this.password, 10);
+  next();
+});
 
-export default Technician;
+export default mongoose.model("Technician", technicianSchema);
