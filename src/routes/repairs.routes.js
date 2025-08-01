@@ -1,22 +1,38 @@
 import express from "express";
 import Repair from "../models/Repair.model.js";
+import Technician from "../models/Technician.model.js";
 import auth from "../middleware/auth.js";
 import checkPermission from "../middleware/checkPermission.js";
 import { calculateProfit } from "../utils/calculateProfit.js";
 
 const router = express.Router();
 
-// Get all repairs
+/* -------------------- 📌 1. جلب جميع الصيانات -------------------- */
 router.get("/", auth, async (req, res) => {
   try {
-    const repairs = await Repair.find().populate("technician recipient");
+    const repairs = await Repair.find()
+      .populate("technician", "name")
+      .populate("recipient", "name");
     res.json(repairs);
   } catch (err) {
-    res.status(500).json({ message: "فشل في تحميل الصيانات" });
+    res.status(500).json({ message: "فشل في تحميل بيانات الصيانة" });
   }
 });
 
-// Create a new repair
+/* -------------------- 📌 2. جلب صيانة واحدة -------------------- */
+router.get("/:id", auth, async (req, res) => {
+  try {
+    const repair = await Repair.findById(req.params.id)
+      .populate("technician recipient")
+      .exec();
+    if (!repair) return res.status(404).json({ message: "الصيانة غير موجودة" });
+    res.json(repair);
+  } catch (err) {
+    res.status(500).json({ message: "فشل في تحميل تفاصيل الصيانة" });
+  }
+});
+
+/* -------------------- 📌 3. إنشاء صيانة جديدة -------------------- */
 router.post("/", auth, checkPermission("addRepair"), async (req, res) => {
   try {
     const {
@@ -32,78 +48,80 @@ router.post("/", auth, checkPermission("addRepair"), async (req, res) => {
       notes,
     } = req.body;
 
-    const { totalPartsCost, profit } = calculateProfit(price, parts);
+    const partsArray = Array.isArray(parts) ? parts : [];
 
-    const newRepair = new Repair({
+    const { totalPartsCost, profit } = calculateProfit(price || 0, partsArray);
+
+    const repair = new Repair({
       customerName,
       deviceType,
       issue,
       color,
       phone,
       price,
-      parts,
+      parts: partsArray,
       technician,
       recipient,
       totalPartsCost,
       profit,
       notes,
-      status: technician ? "جاري العمل" : "في الانتظار",
-      startTime: technician ? new Date() : undefined,
     });
 
-    await newRepair.save();
-    res.status(201).json(newRepair);
+    await repair.save();
+    res.status(201).json(repair);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "فشل في إنشاء الصيانة" });
   }
 });
 
-// Update repair
+/* -------------------- 📌 4. تعديل الصيانة -------------------- */
 router.put("/:id", auth, checkPermission("editRepair"), async (req, res) => {
   try {
+    const { password } = req.body;
     const repair = await Repair.findById(req.params.id);
     if (!repair) return res.status(404).json({ message: "الصيانة غير موجودة" });
 
-    const prevTechnician = repair.technician?.toString();
-    const { price, parts, status, technician, endTime, recipient, ...rest } =
-      req.body;
-
-    // تحديث الحقول العامة
-    Object.assign(repair, rest);
-
-    if (typeof price !== "undefined") repair.price = price;
-    if (typeof parts !== "undefined") repair.parts = parts;
-    if (typeof recipient !== "undefined") repair.recipient = recipient;
-
-    // حساب الربح الجديد إذا تغيرت الأسعار أو القطع
-    if (price || parts) {
-      const { totalPartsCost, profit } = calculateProfit(
-        repair.price,
-        repair.parts
-      );
-      repair.totalPartsCost = totalPartsCost;
-      repair.profit = profit;
-    }
-
-    // تغيير الفني
-    if (technician && technician !== prevTechnician) {
-      repair.technician = technician;
-      repair.startTime = new Date(); // بداية عمل الفني الجديد
-    }
-
-    // تغيير الحالة
-    if (status) {
-      repair.status = status;
-      if (req.body.status === "تم التسليم") {
-        repair.deliveredAt = new Date();
+    // لو المستخدم فني وليس أدمن يطلب كلمة مرور
+    if (req.user.role !== "admin") {
+      const technician = await Technician.findById(req.user.id);
+      if (!technician || technician.password !== password) {
+        return res.status(403).json({ message: "كلمة المرور غير صحيحة" });
       }
     }
+
+    Object.assign(repair, req.body);
+
+    const { totalPartsCost, profit } = calculateProfit(
+      repair.price || 0,
+      repair.parts || []
+    );
+    repair.totalPartsCost = totalPartsCost;
+    repair.profit = profit;
 
     await repair.save();
     res.json(repair);
   } catch (err) {
-    res.status(500).json({ message: "فشل في تحديث الصيانة" });
+    res.status(500).json({ message: "فشل في تعديل الصيانة" });
   }
 });
+
+/* -------------------- 📌 5. حذف صيانة -------------------- */
+router.delete(
+  "/:id",
+  auth,
+  checkPermission("deleteRepair"),
+  async (req, res) => {
+    try {
+      const repair = await Repair.findByIdAndDelete(req.params.id);
+      if (!repair)
+        return res.status(404).json({ message: "الصيانة غير موجودة" });
+
+      res.json({ message: "تم حذف الصيانة بنجاح" });
+    } catch (err) {
+      res.status(500).json({ message: "فشل في حذف الصيانة" });
+    }
+  }
+);
 
 export default router;

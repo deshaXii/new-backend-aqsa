@@ -1,38 +1,43 @@
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-import bcrypt from 'bcryptjs';
-import User from '../models/User.model.js';
-import connectDB from '../config/db.js';
+// src/seed.js
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import Technician from "../models/Technician.model.js";
+import Repair from "../models/Repair.model.js";
+import Log from "../models/Log.model.js";
 
 dotenv.config();
 
-const seedAdmin = async () => {
-  await connectDB();
+const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/aqsa";
 
-  const existing = await User.findOne({ username: 'admin' });
-  if (existing) {
-    console.log('Admin user already exists');
+async function seedDatabase() {
+  try {
+    await mongoose.connect(MONGO_URI);
+
+    console.log("🗑️ مسح كل البيانات القديمة...");
+    await Repair.deleteMany({});
+    await Log.deleteMany({});
+    await Technician.deleteMany({});
+
+    console.log("➕ إنشاء الأدمن الافتراضي...");
+    await Technician.create({
+      name: "Admin",
+      username: "admin",
+      password: "admin123",
+      role: "admin",
+      permissions: {
+        addRepair: true,
+        editRepair: true,
+        deleteRepair: true,
+        receiveDevice: true,
+      },
+    });
+
+    console.log("✅ تم إعادة تهيئة قاعدة البيانات بنجاح");
     process.exit();
+  } catch (error) {
+    console.error("❌ حصل خطأ:", error);
+    process.exit(1);
   }
+}
 
-  const hashed = await bcrypt.hash('admin123', 10);
-
-  const admin = new User({
-    name: 'Admin',
-    username: 'admin',
-    password: hashed,
-    role: 'admin',
-    permissions: {
-      addRepair: true,
-      editRepair: true,
-      deleteRepair: true,
-      receiveDevice: true
-    }
-  });
-
-  await admin.save();
-  console.log('Admin user created');
-  process.exit();
-};
-
-seedAdmin();
+seedDatabase();
