@@ -5,8 +5,9 @@
   "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon src/server.js",
-    "seed": "node src/seed/adminSeed.js"
+    "dev": "vercel dev",
+    "build": "echo 'Vercel uses serverless functions, no build needed'",
+    "start": "vercel dev"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
