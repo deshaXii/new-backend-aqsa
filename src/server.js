@@ -32,3 +32,6 @@ app.use("/api/parts", partsRoutes);
 app.use("/api/technicians", techniciansRoutes);
 
 app.listen(5000, () => console.log("Server running on port 5000"));
+
+// Vercel requires this to work properly
+module.exports = app;
